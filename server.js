@@ -14,10 +14,10 @@ import {
   beginPasskeyAuth, finishPasskeyAuth
 } from './src/auth/auth.js'
 import {
-  getTrelloLists, getTasksByList, getAllActiveTasks, upsertTask
+  getTrelloLists, getTasksByList, getAllActiveTasks, upsertTask, markTaskDone
 } from './src/db/sqlite.js'
 import { parseTasks } from './src/ai/taskParser.js'
-import { createCard } from './src/trello/trello.js'
+import { createCard, moveCard } from './src/trello/trello.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -62,6 +62,24 @@ app.get('/api/tasks', requireAuth, (req, res) => {
   const { listId } = req.query
   const tasks = listId ? getTasksByList(listId) : getAllActiveTasks()
   res.json(tasks)
+})
+
+// ─── API: Mark Task Done ──────────────────────────────────────────────────────
+
+app.post('/api/tasks/:cardId/done', requireAuth, async (req, res) => {
+  const { cardId } = req.params
+  try {
+    const lists = getTrelloLists()
+    const doneList = lists.find(l => l.is_done)
+    if (!doneList) return res.status(400).json({ error: 'Колода "Выполненные" не найдена' })
+
+    await moveCard(cardId, doneList.list_id)
+    markTaskDone(cardId)
+    res.json({ success: true })
+  } catch (e) {
+    console.error('[tasks/done]', e)
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ─── API: Parse & Create Tasks ────────────────────────────────────────────────

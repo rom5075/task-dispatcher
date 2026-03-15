@@ -7,6 +7,7 @@ export default function TaskBoard({ token, onLogout }) {
   const [tasks, setTasks] = useState([])
   const [activeList, setActiveList] = useState(null) // null = все задачи
   const [loading, setLoading] = useState(true)
+  const [doing, setDoing] = useState(new Set()) // cardIds в процессе выполнения
 
   const headers = { 'x-auth-token': token }
 
@@ -42,6 +43,19 @@ export default function TaskBoard({ token, onLogout }) {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function markDone(cardId) {
+    setDoing(prev => new Set([...prev, cardId]))
+    try {
+      const res = await fetch(`/api/tasks/${cardId}/done`, { method: 'POST', headers })
+      if (!res.ok) throw new Error('Ошибка')
+      setTasks(prev => prev.filter(t => t.trello_card_id !== cardId))
+    } catch (e) {
+      console.error('[markDone]', e)
+    } finally {
+      setDoing(prev => { const n = new Set(prev); n.delete(cardId); return n })
     }
   }
 
@@ -88,7 +102,10 @@ export default function TaskBoard({ token, onLogout }) {
           <div style={s.empty}>✨ Задач нет</div>
         ) : (
           tasks.map(task => (
-            <TaskCard key={task.id} task={task} showList={activeList === null} />
+            <TaskCard
+              key={task.id} task={task} showList={activeList === null}
+              onDone={markDone} isDoing={doing.has(task.trello_card_id)}
+            />
           ))
         )}
       </div>
@@ -96,7 +113,7 @@ export default function TaskBoard({ token, onLogout }) {
   )
 }
 
-function TaskCard({ task, showList }) {
+function TaskCard({ task, showList, onDone, isDoing }) {
   return (
     <div style={s.card}>
       <div style={s.cardContent}>
@@ -108,8 +125,16 @@ function TaskCard({ task, showList }) {
           <span style={s.listBadge}>{task.list_name}</span>
         )}
       </div>
-      <div style={s.cardDate}>
-        {formatDate(task.created_at)}
+      <div style={s.cardActions}>
+        <span style={s.cardDate}>{formatDate(task.created_at)}</span>
+        <button
+          style={{ ...s.doneBtn, ...(isDoing ? s.doneBtnDoing : {}) }}
+          onClick={() => onDone(task.trello_card_id)}
+          disabled={isDoing}
+          title="Отметить выполненной"
+        >
+          {isDoing ? '…' : '✓'}
+        </button>
       </div>
     </div>
   )
@@ -177,6 +202,20 @@ const s = {
     border: '1px solid rgba(102,126,234,0.3)',
     borderRadius: 10, fontSize: 11, color: '#8899dd'
   },
-  cardDate: { fontSize: 11, color: '#444', whiteSpace: 'nowrap', marginTop: 2 },
+  cardActions: {
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'flex-end', justifyContent: 'space-between',
+    gap: 8, flexShrink: 0
+  },
+  cardDate: { fontSize: 11, color: '#444', whiteSpace: 'nowrap' },
+  doneBtn: {
+    width: 28, height: 28, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    color: '#555', fontSize: 14, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.15s', flexShrink: 0
+  },
+  doneBtnDoing: { opacity: 0.5, cursor: 'default' },
   empty: { textAlign: 'center', padding: '60px 20px', color: '#444', fontSize: 14 }
 }
