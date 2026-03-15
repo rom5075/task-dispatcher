@@ -97,7 +97,7 @@ export function useAuth() {
       const options = await beginRes.json()
 
       // 2. Запускаем Face ID / Touch ID
-      const response = await startAuthentication({ optionsJSON: options })
+      const response = await startAuthentication(options)
 
       // 3. Отправляем результат на сервер
       const finishRes = await fetch('/api/auth/passkey/auth/finish', {

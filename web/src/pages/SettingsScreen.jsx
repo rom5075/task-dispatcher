@@ -22,14 +22,8 @@ export default function SettingsScreen({ token, onLogout }) {
       }
       const options = await beginRes.json()
 
-      // DEBUG: log to browser console
-      console.log('[passkey] options from server:', JSON.stringify(options))
-      console.log('[passkey] challenge type:', typeof options.challenge)
-      console.log('[passkey] user.id type:', typeof options.user?.id)
-      console.log('[passkey] user.id value:', options.user?.id)
-
-      // 2. Запускаем биометрию
-      const response = await startRegistration({ optionsJSON: options })
+      // 2. Запускаем биометрию (прямой вызов — совместим с v9 и v10)
+      const response = await startRegistration(options)
 
       // 3. Отправляем результат
       const finishRes = await fetch('/api/auth/passkey/register/finish', {

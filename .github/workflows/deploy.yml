@@ -20,6 +20,6 @@ jobs:
             cd /var/www/task-dispatcher
             git pull
             npm install --production
-            cd web && npm run build && cd ..
+            cd web && npm install && npm run build && cd ..
             pm2 restart task-dispatcher || pm2 start server.js --name task-dispatcher
             pm2 save
