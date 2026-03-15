@@ -1,6 +1,7 @@
 // server.js — Express сервер + API для Web App
 
 import 'dotenv/config'
+import crypto from 'crypto'
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
