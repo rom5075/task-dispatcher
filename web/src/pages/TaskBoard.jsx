@@ -8,11 +8,14 @@ export default function TaskBoard({ token, onLogout }) {
   const [activeList, setActiveList] = useState(null) // null = все задачи
   const [loading, setLoading] = useState(true)
   const [doing, setDoing] = useState(new Set()) // cardIds в процессе выполнения
+  const [, setTick] = useState(0) // триггер перерендера для обновления бейджей
 
   const headers = { 'x-auth-token': token }
 
   useEffect(() => {
     loadLists()
+    const id = setInterval(() => setTick(t => t + 1), 2 * 60 * 60 * 1000) // каждые 2 часа
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
