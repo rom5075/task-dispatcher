@@ -177,6 +177,17 @@ export function getAllActiveTasks() {
   `).all()
 }
 
+export function searchTasks(query) {
+  const q = `%${query}%`
+  return db.prepare(`
+    SELECT t.*, tl.name as list_name FROM tasks t
+    LEFT JOIN trello_lists tl ON t.trello_list_id = tl.list_id
+    WHERE t.status = 'active' AND (t.title LIKE ? OR t.description LIKE ?)
+    ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC
+    LIMIT 20
+  `).all(q, q)
+}
+
 export function markTaskDone(trelloCardId) {
   db.prepare(`
     UPDATE tasks SET status = 'done', updated_at = datetime('now')

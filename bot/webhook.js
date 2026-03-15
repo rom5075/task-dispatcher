@@ -3,7 +3,7 @@
 import { parseTasks } from '../src/ai/taskParser.js'
 import { createCard } from '../src/trello/trello.js'
 import {
-  upsertProfile, getTrelloLists, upsertTask, getTasksByList
+  upsertProfile, getTrelloLists, upsertTask, getTasksByList, searchTasks
 } from '../src/db/sqlite.js'
 import {
   sendTelegramMessage, editTelegramMessage,
@@ -89,6 +89,28 @@ export async function webhookHandler(req) {
           ]]
         }
       }
+    )
+    return new Response('ok', { status: 200 })
+  }
+
+  if (text.startsWith('/search ') || text.startsWith('🔍 ')) {
+    const query = text.replace(/^\/search |^🔍 /, '').trim()
+    if (!query) {
+      await sendTelegramMessage(chatId, '🔍 Укажи запрос: <code>/search текст</code>')
+      return new Response('ok', { status: 200 })
+    }
+    const results = searchTasks(query)
+    if (results.length === 0) {
+      await sendTelegramMessage(chatId, `🔍 По запросу "<b>${query}</b>" ничего не найдено.`)
+      return new Response('ok', { status: 200 })
+    }
+    const lines = results.map(t => {
+      const due = t.due_date ? ` 📅 ${t.due_date}` : ''
+      const list = t.list_name ? ` <i>${t.list_name}</i>` : ''
+      return `• ${t.title}${due}${list}`
+    })
+    await sendTelegramMessage(chatId,
+      `🔍 <b>${results.length} результатов по "${query}":</b>\n\n${lines.join('\n')}`
     )
     return new Response('ok', { status: 200 })
   }
