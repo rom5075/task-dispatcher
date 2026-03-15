@@ -99,9 +99,9 @@ export function savePasskeyCredential(userId, credentialJSON) {
 
 export function getPasskeyCredential(userId) {
   const row = db.prepare('SELECT passkey_credential, passkey_challenge FROM profiles WHERE user_id = ?').get(String(userId))
-  if (!row?.passkey_credential) return null
+  if (!row) return null
   return {
-    credential: JSON.parse(row.passkey_credential),
+    credential: row.passkey_credential ? JSON.parse(row.passkey_credential) : null,
     challenge: row.passkey_challenge
   }
 }
