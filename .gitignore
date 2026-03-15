@@ -1,0 +1,9 @@
+﻿.env
+node_modules/
+web/node_modules/
+web/dist/
+data/
+*.db
+*.db-shm
+*.db-wal
+VPS_SERVER_CLAUDE.md
