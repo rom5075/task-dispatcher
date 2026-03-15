@@ -68,8 +68,6 @@ export async function beginPasskeyRegistration(userId, userName) {
     }
   }
 
-  console.log('[passkey/register] challenge type:', typeof safeOptions.challenge, '| user.id type:', typeof safeOptions.user.id)
-
   savePasskeyChallenge(userId, safeOptions.challenge)
   return safeOptions
 }
@@ -90,12 +88,26 @@ export async function finishPasskeyRegistration(userId, response) {
     throw new Error('Passkey регистрация не прошла верификацию')
   }
 
+  const info = verification.registrationInfo
+
+  // Совместимость с @simplewebauthn/server v9 (credentialID) и v10 (credential.id)
+  const toB64 = (val) => {
+    if (!val) return undefined
+    if (typeof val === 'string') return val
+    return Buffer.from(val).toString('base64url')
+  }
+  const credId      = toB64(info.credential?.id ?? info.credentialID)
+  const credPubKey  = info.credential?.publicKey ?? info.credentialPublicKey
+  const credCounter = info.credential?.counter   ?? info.counter ?? 0
+
+  if (!credId || !credPubKey) throw new Error('Не удалось извлечь данные credential')
+
   savePasskeyCredential(userId, {
-    id: verification.registrationInfo.credential.id,
-    publicKey: Buffer.from(verification.registrationInfo.credential.publicKey).toString('base64'),
-    counter: verification.registrationInfo.credential.counter,
-    deviceType: verification.registrationInfo.credentialDeviceType,
-    backedUp: verification.registrationInfo.credentialBackedUp,
+    id: credId,
+    publicKey: Buffer.from(credPubKey).toString('base64'),
+    counter: credCounter,
+    deviceType: info.credentialDeviceType,
+    backedUp: info.credentialBackedUp,
   })
 
   return true
@@ -122,24 +134,27 @@ export async function finishPasskeyAuth(userId, response) {
   if (!data?.credential || !data?.challenge) throw new Error('Данные не найдены')
 
   const credential = data.credential
-  
-  const verification = await verifyAuthenticationResponse({
+  const pubKeyBuf = Buffer.from(credential.publicKey, 'base64')
+
+  // Совместимость: v10 использует credential{}, v9 использует authenticator{}
+  const verifyParams = {
     response,
     expectedChallenge: data.challenge,
     expectedOrigin: ORIGIN,
     expectedRPID: RP_ID,
-    credential: {
-      id: credential.id,
-      publicKey: Buffer.from(credential.publicKey, 'base64'),
-      counter: credential.counter,
-    },
-    requireUserVerification: true
-  })
+    requireUserVerification: true,
+    // v10 API
+    credential: { id: credential.id, publicKey: pubKeyBuf, counter: credential.counter },
+    // v9 API fallback
+    authenticator: { credentialID: Buffer.from(credential.id, 'base64url'), credentialPublicKey: pubKeyBuf, counter: credential.counter },
+  }
+
+  const verification = await verifyAuthenticationResponse(verifyParams)
 
   if (!verification.verified) throw new Error('Passkey аутентификация не прошла')
 
-  // Обновляем counter
-  credential.counter = verification.authenticationInfo.newCounter
+  // Обновляем counter (совместимо с v9 и v10)
+  credential.counter = verification.authenticationInfo?.newCounter ?? credential.counter
   savePasskeyCredential(userId, credential)
 
   return true
