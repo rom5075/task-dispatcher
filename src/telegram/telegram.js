@@ -76,3 +76,15 @@ export function buildListMenu(listId, listName) {
     ]
   }
 }
+
+// Постоянная клавиатура внизу чата
+export function buildPersistentKeyboard() {
+  return {
+    keyboard: [[
+      { text: '🌐 Web App' },
+      { text: '🔄 Обновить' }
+    ]],
+    resize_keyboard: true,
+    persistent: true
+  }
+}

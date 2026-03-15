@@ -7,7 +7,7 @@ import {
 } from '../src/db/sqlite.js'
 import {
   sendTelegramMessage, editTelegramMessage,
-  buildMainMenu, buildListMenu
+  buildMainMenu, buildListMenu, buildPersistentKeyboard
 } from '../src/telegram/telegram.js'
 import { forceSyncLists } from '../src/polling/trelloPolling.js'
 import { createAccessTokenForUser } from '../src/auth/auth.js'
@@ -52,11 +52,11 @@ export async function webhookHandler(req) {
 
   if (text === '/start') {
     const lists = getTrelloLists()
-    const keyboard = buildMainMenu(lists)
     await sendTelegramMessage(chatId,
       `👋 <b>Task Dispatcher</b>\n\nПиши задачи свободным текстом — я распределю их по Trello.\n\nПроектов загружено: ${lists.filter(l => !l.is_done).length}`,
-      { reply_markup: keyboard }
+      { reply_markup: buildPersistentKeyboard() }
     )
+    await sendTelegramMessage(chatId, '📋 <b>Проекты:</b>', { reply_markup: buildMainMenu(lists) })
     return new Response('ok', { status: 200 })
   }
 
@@ -77,7 +77,7 @@ export async function webhookHandler(req) {
     return new Response('ok', { status: 200 })
   }
 
-  if (text === '/webapp') {
+  if (text === '/webapp' || text === '🌐 Web App') {
     const token = createAccessTokenForUser(userId)
     const url = `${APP_URL}?token=${token}`
     await sendTelegramMessage(chatId,
@@ -89,6 +89,17 @@ export async function webhookHandler(req) {
           ]]
         }
       }
+    )
+    return new Response('ok', { status: 200 })
+  }
+
+  if (text === '🔄 Обновить') {
+    const processing = await sendTelegramMessage(chatId, '🔄 Синхронизирую колоды с Trello...')
+    const lists = await forceSyncLists()
+    await editTelegramMessage(chatId, processing.result.message_id,
+      `✅ Синхронизировано ${lists.length} колод:\n` +
+      lists.map(l => `• ${l.name}${l.is_done ? ' (выполненные)' : ''}`).join('\n'),
+      { reply_markup: buildMainMenu(lists) }
     )
     return new Response('ok', { status: 200 })
   }
