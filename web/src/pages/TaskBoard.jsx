@@ -126,7 +126,10 @@ function TaskCard({ task, showList, onDone, isDoing }) {
         )}
       </div>
       <div style={s.cardActions}>
-        <span style={s.cardDate}>{formatDate(task.created_at)}</span>
+        {task.due_date
+          ? <span style={{ ...s.dueBadge, ...dueBadgeStyle(task.due_date) }}>{formatDue(task.due_date)}</span>
+          : <span style={s.cardDate}>{formatDate(task.created_at)}</span>
+        }
         <button
           style={{ ...s.doneBtn, ...(isDoing ? s.doneBtnDoing : {}) }}
           onClick={() => onDone(task.trello_card_id)}
@@ -144,6 +147,27 @@ function formatDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
+
+function formatDue(dateStr) {
+  if (!dateStr) return ''
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const due = new Date(dateStr); due.setHours(0, 0, 0, 0)
+  const diff = Math.round((due - today) / 86400000)
+  if (diff < 0) return `просрочено ${due.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}`
+  if (diff === 0) return 'сегодня'
+  if (diff === 1) return 'завтра'
+  return due.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
+}
+
+function dueBadgeStyle(dateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const due = new Date(dateStr); due.setHours(0, 0, 0, 0)
+  const diff = Math.round((due - today) / 86400000)
+  if (diff < 0) return { background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }
+  if (diff === 0) return { background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.4)', color: '#fb923c' }
+  if (diff <= 2) return { background: 'rgba(250,204,21,0.12)', border: '1px solid rgba(250,204,21,0.35)', color: '#fbbf24' }
+  return { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', color: '#6ee7b7' }
 }
 
 const s = {
@@ -208,6 +232,7 @@ const s = {
     gap: 8, flexShrink: 0
   },
   cardDate: { fontSize: 11, color: '#444', whiteSpace: 'nowrap' },
+  dueBadge: { fontSize: 11, whiteSpace: 'nowrap', padding: '2px 6px', borderRadius: 8 },
   doneBtn: {
     width: 28, height: 28, borderRadius: '50%',
     background: 'rgba(255,255,255,0.05)',

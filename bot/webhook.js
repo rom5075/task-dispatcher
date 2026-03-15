@@ -136,16 +136,18 @@ export async function webhookHandler(req) {
       const card = await createCard({
         listId: task.listId,
         title: task.title,
-        description: task.description
+        description: task.description,
+        due: task.due || null
       })
-      
+
       upsertTask({
         trello_card_id: card.id,
         trello_list_id: task.listId,
         list_name: task.listName,
         title: task.title,
         description: task.description,
-        status: 'active'
+        status: 'active',
+        due_date: task.due || null
       })
 
       created.push({ ...task, cardUrl: card.shortUrl })
@@ -226,7 +228,8 @@ async function handleCallback(cb) {
 function formatTaskReport(tasks) {
   const lines = tasks.map(t => {
     const emoji = getListEmoji(t.listName)
-    return `${emoji} <b>${t.listName}</b> → <a href="${t.cardUrl}">${t.title}</a>`
+    const due = t.due ? ` 📅 ${t.due}` : ''
+    return `${emoji} <b>${t.listName}</b> → <a href="${t.cardUrl}">${t.title}</a>${due}`
   })
 
   return `✅ <b>Создано ${tasks.length} ${plural(tasks.length, 'задача', 'задачи', 'задач')}:</b>\n\n` +

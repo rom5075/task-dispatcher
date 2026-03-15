@@ -56,6 +56,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_auth_ip ON auth_attempts(ip, attempted_at);
 `)
 
+// Миграция: добавляем due_date если ещё нет (для существующих БД)
+try { db.exec(`ALTER TABLE tasks ADD COLUMN due_date TEXT`) } catch { /* уже есть */ }
+
 // ─── Profiles ─────────────────────────────────────────────────────────────────
 
 export function upsertProfile(userId, telegramName) {
@@ -138,14 +141,15 @@ export function getTrelloListByName(name) {
 
 export function upsertTask(task) {
   db.prepare(`
-    INSERT INTO tasks (trello_card_id, trello_list_id, list_name, title, description, status, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO tasks (trello_card_id, trello_list_id, list_name, title, description, status, due_date, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(trello_card_id) DO UPDATE SET
       trello_list_id = excluded.trello_list_id,
       list_name = excluded.list_name,
       title = excluded.title,
       description = excluded.description,
       status = excluded.status,
+      due_date = excluded.due_date,
       updated_at = datetime('now')
   `).run(
     task.trello_card_id,
@@ -153,7 +157,8 @@ export function upsertTask(task) {
     task.list_name,
     task.title,
     task.description || '',
-    task.status || 'active'
+    task.status || 'active',
+    task.due_date || null
   )
 }
 

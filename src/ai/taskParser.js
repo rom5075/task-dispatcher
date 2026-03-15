@@ -15,8 +15,12 @@ export async function parseTasks(text, lists) {
   const activeLists = lists.filter(l => !l.is_done)
   const listOptions = activeLists.map(l => `- "${l.name}" (id: ${l.list_id})`).join('\n')
 
-  const systemPrompt = `Ты — ассистент для управления задачами. 
+  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+
+  const systemPrompt = `Ты — ассистент для управления задачами.
 Твоя задача: из свободного текста извлечь все задачи и распределить их по проектам.
+
+Сегодня: ${today}
 
 Доступные проекты (колоды Trello):
 ${listOptions}
@@ -27,6 +31,10 @@ ${listOptions}
 3. Если проект рабочий но непонятен — использовать "Входящие"
 4. Если колоды "Входящие" нет в списке — использовать первую рабочую колоду
 
+Правила определения дедлайна (поле due):
+- Если в тексте есть срок ("завтра", "в пятницу", "до 20 марта", "через неделю" и т.п.) — вычисли дату и верни в формате YYYY-MM-DD
+- Если срока нет — верни null
+
 Отвечай ТОЛЬКО валидным JSON, без markdown, без пояснений:
 {
   "tasks": [
@@ -34,7 +42,8 @@ ${listOptions}
       "title": "Краткое название задачи (до 100 символов)",
       "description": "Детали если есть, иначе пустая строка",
       "listId": "id_колоды",
-      "listName": "Название колоды"
+      "listName": "Название колоды",
+      "due": "YYYY-MM-DD или null"
     }
   ]
 }`

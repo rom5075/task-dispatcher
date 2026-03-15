@@ -39,17 +39,10 @@ export async function getBoardCards() {
   return trelloFetch(`/boards/${BOARD_ID}/cards?fields=id,name,desc,idList,closed`)
 }
 
-export async function createCard({ listId, title, description = '' }) {
-  return trelloFetch(`/cards`, {
-    method: 'POST',
-    body: JSON.stringify({
-      idList: listId,
-      name: title,
-      desc: description,
-      key: KEY,
-      token: TOKEN
-    })
-  })
+export async function createCard({ listId, title, description = '', due = null }) {
+  const body = { idList: listId, name: title, desc: description, key: KEY, token: TOKEN }
+  if (due) body.due = new Date(due).toISOString()
+  return trelloFetch(`/cards`, { method: 'POST', body: JSON.stringify(body) })
 }
 
 export async function moveCard(cardId, listId) {

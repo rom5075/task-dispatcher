@@ -94,16 +94,17 @@ app.post('/api/tasks/parse', requireAuth, async (req, res) => {
 
     const created = []
     for (const task of parsed) {
-      const card = await createCard({ listId: task.listId, title: task.title, description: task.description })
+      const card = await createCard({ listId: task.listId, title: task.title, description: task.description, due: task.due || null })
       upsertTask({
         trello_card_id: card.id,
         trello_list_id: task.listId,
         list_name: task.listName,
         title: task.title,
         description: task.description || '',
-        status: 'active'
+        status: 'active',
+        due_date: task.due || null
       })
-      created.push({ title: task.title, listName: task.listName, cardUrl: card.url })
+      created.push({ title: task.title, listName: task.listName, cardUrl: card.url, due: task.due || null })
     }
 
     res.json({ tasks: created })
