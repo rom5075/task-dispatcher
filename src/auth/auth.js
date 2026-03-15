@@ -38,19 +38,40 @@ export function validateAccessToken(token) {
 // ─── Passkey Registration ─────────────────────────────────────────────────────
 
 export async function beginPasskeyRegistration(userId, userName) {
+  // Используем plain Uint8Array (не Buffer) чтобы избежать проблем сериализации
+  const userIdBytes = Uint8Array.from(Buffer.from(String(userId)))
+
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: RP_ID,
+    userID: userIdBytes,
     userName: userName || 'user',
     attestationType: 'none',
     authenticatorSelection: {
-      authenticatorAttachment: 'platform', // встроенный (Face ID / Touch ID)
+      authenticatorAttachment: 'platform',
       userVerification: 'required'
     }
   })
-  
-  savePasskeyChallenge(userId, options.challenge)
-  return options
+
+  // Гарантируем что challenge и user.id — строки (base64url), а не Buffer/Uint8Array
+  const toBase64url = (val) => {
+    if (typeof val === 'string') return val
+    return Buffer.from(val).toString('base64url')
+  }
+
+  const safeOptions = {
+    ...options,
+    challenge: toBase64url(options.challenge),
+    user: {
+      ...options.user,
+      id: toBase64url(options.user?.id ?? userIdBytes)
+    }
+  }
+
+  console.log('[passkey/register] challenge type:', typeof safeOptions.challenge, '| user.id type:', typeof safeOptions.user.id)
+
+  savePasskeyChallenge(userId, safeOptions.challenge)
+  return safeOptions
 }
 
 export async function finishPasskeyRegistration(userId, response) {
