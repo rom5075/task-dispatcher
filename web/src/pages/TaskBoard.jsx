@@ -193,9 +193,9 @@ const s = {
     display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
     gap: 12
   },
-  cardContent: { flex: 1, minWidth: 0 },
-  taskTitle: { fontSize: 14, color: '#e8e8f0', lineHeight: 1.4, marginBottom: 4 },
-  taskDesc: { fontSize: 12, color: '#666', lineHeight: 1.4, marginBottom: 6 },
+  cardContent: { flex: 1, minWidth: 0, overflow: 'hidden' },
+  taskTitle: { fontSize: 14, color: '#e8e8f0', lineHeight: 1.4, marginBottom: 4, wordBreak: 'break-word' },
+  taskDesc: { fontSize: 12, color: '#666', lineHeight: 1.4, marginBottom: 6, wordBreak: 'break-all', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' },
   listBadge: {
     display: 'inline-block', padding: '2px 8px',
     background: 'rgba(102,126,234,0.15)',
