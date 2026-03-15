@@ -13,8 +13,10 @@ import {
   beginPasskeyAuth, finishPasskeyAuth
 } from './src/auth/auth.js'
 import {
-  getTrelloLists, getTasksByList, getAllActiveTasks
+  getTrelloLists, getTasksByList, getAllActiveTasks, upsertTask
 } from './src/db/sqlite.js'
+import { parseTasks } from './src/ai/taskParser.js'
+import { createCard } from './src/trello/trello.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -59,6 +61,37 @@ app.get('/api/tasks', requireAuth, (req, res) => {
   const { listId } = req.query
   const tasks = listId ? getTasksByList(listId) : getAllActiveTasks()
   res.json(tasks)
+})
+
+// ─── API: Parse & Create Tasks ────────────────────────────────────────────────
+
+app.post('/api/tasks/parse', requireAuth, async (req, res) => {
+  const { text } = req.body
+  if (!text?.trim()) return res.status(400).json({ error: 'Текст не передан' })
+
+  try {
+    const lists = getTrelloLists()
+    const parsed = await parseTasks(text, lists)
+
+    const created = []
+    for (const task of parsed) {
+      const card = await createCard({ listId: task.listId, title: task.title, description: task.description })
+      upsertTask({
+        trello_card_id: card.id,
+        trello_list_id: task.listId,
+        list_name: task.listName,
+        title: task.title,
+        description: task.description || '',
+        status: 'active'
+      })
+      created.push({ title: task.title, listName: task.listName, cardUrl: card.url })
+    }
+
+    res.json({ tasks: created })
+  } catch (e) {
+    console.error('[tasks/parse]', e)
+    res.status(500).json({ error: e.message })
+  }
 })
 
 // ─── Auth: Passkey Registration ───────────────────────────────────────────────
