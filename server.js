@@ -147,6 +147,52 @@ app.post('/api/auth/passkey/auth/finish', async (req, res) => {
   }
 })
 
+// ─── Auth: Telegram Mini App ──────────────────────────────────────────────────
+
+app.post('/api/auth/telegram', async (req, res) => {
+  const { initData } = req.body
+  if (!initData) return res.status(400).json({ error: 'initData не передан' })
+
+  try {
+    const params = new URLSearchParams(initData)
+    const hash = params.get('hash')
+    if (!hash) return res.status(400).json({ error: 'hash отсутствует' })
+
+    // Строим data-check-string: все пары кроме hash, отсортированные по ключу
+    params.delete('hash')
+    const dataCheckString = [...params.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n')
+
+    // HMAC-SHA256: secret = HMAC("WebAppData", BOT_TOKEN), проверяем dataCheckString
+    const secret = crypto.createHmac('sha256', 'WebAppData')
+      .update(process.env.TELEGRAM_BOT_TOKEN)
+      .digest()
+    const expectedHash = crypto.createHmac('sha256', secret)
+      .update(dataCheckString)
+      .digest('hex')
+
+    if (expectedHash !== hash) return res.status(401).json({ error: 'Подпись недействительна' })
+
+    // Проверяем что это наш пользователь
+    const userJson = params.get('user')
+    if (!userJson) return res.status(400).json({ error: 'user не найден' })
+    const user = JSON.parse(userJson)
+
+    if (String(user.id) !== String(process.env.ADMIN_ID)) {
+      return res.status(403).json({ error: 'Доступ запрещён' })
+    }
+
+    const { createAccessTokenForUser } = await import('./src/auth/auth.js')
+    const token = createAccessTokenForUser(user.id)
+    res.json({ token })
+  } catch (e) {
+    console.error('[auth/telegram]', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+
 // ─── Auth: Token Validation ───────────────────────────────────────────────────
 
 app.get('/api/auth/validate', requireAuth, (req, res) => {
