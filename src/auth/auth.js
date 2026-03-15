@@ -41,7 +41,6 @@ export async function beginPasskeyRegistration(userId, userName) {
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: RP_ID,
-    userID: Buffer.from(String(userId)),
     userName: userName || 'user',
     attestationType: 'none',
     authenticatorSelection: {
