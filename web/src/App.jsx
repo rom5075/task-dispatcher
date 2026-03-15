@@ -5,10 +5,11 @@ import { useAuth } from './hooks/useAuth.js'
 import LoginScreen from './pages/LoginScreen.jsx'
 import TaskBoard from './pages/TaskBoard.jsx'
 import ChatScreen from './pages/ChatScreen.jsx'
+import SettingsScreen from './pages/SettingsScreen.jsx'
 
 export default function App() {
   const { token, status, error, loginWithPasskey, logout } = useAuth()
-  const [tab, setTab] = useState('tasks') // 'tasks' | 'chat'
+  const [tab, setTab] = useState('tasks') // 'tasks' | 'chat' | 'settings'
 
   if (status === 'loading') {
     return (
@@ -25,10 +26,9 @@ export default function App() {
 
   return (
     <div style={s.app}>
-      {tab === 'tasks'
-        ? <TaskBoard token={token} onLogout={logout} />
-        : <ChatScreen token={token} />
-      }
+      {tab === 'tasks' && <TaskBoard token={token} onLogout={logout} />}
+      {tab === 'chat' && <ChatScreen token={token} />}
+      {tab === 'settings' && <SettingsScreen token={token} onLogout={logout} />}
 
       {/* Нижняя навигация */}
       <nav style={s.tabBar}>
@@ -39,6 +39,10 @@ export default function App() {
         <button style={s.tabBtn} onClick={() => setTab('chat')}>
           <span style={s.tabIcon}>💬</span>
           <span style={{ ...s.tabLabel, color: tab === 'chat' ? '#a8b5ff' : '#555' }}>Чат</span>
+        </button>
+        <button style={s.tabBtn} onClick={() => setTab('settings')}>
+          <span style={s.tabIcon}>⚙️</span>
+          <span style={{ ...s.tabLabel, color: tab === 'settings' ? '#a8b5ff' : '#555' }}>Настройки</span>
         </button>
       </nav>
     </div>
