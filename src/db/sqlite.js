@@ -178,14 +178,24 @@ export function getAllActiveTasks() {
 }
 
 export function searchTasks(query) {
-  const q = `%${query.toLowerCase()}%`
+  // Разбиваем на слова и обрезаем окончания для морфологии (>5 букв → -3, >3 → -2)
+  const words = query.toLowerCase().trim().split(/\s+/).filter(Boolean)
+  const patterns = words.map(w => {
+    const stem = w.length > 5 ? w.slice(0, -3) : w.length > 3 ? w.slice(0, -2) : w
+    return `%${stem}%`
+  })
+  const conditions = patterns.map(() =>
+    '(LOWER(t.title) LIKE ? OR LOWER(t.description) LIKE ?)'
+  ).join(' AND ')
+  const params = patterns.flatMap(p => [p, p])
+
   return db.prepare(`
     SELECT t.*, tl.name as list_name FROM tasks t
     LEFT JOIN trello_lists tl ON t.trello_list_id = tl.list_id
-    WHERE t.status = 'active' AND (LOWER(t.title) LIKE ? OR LOWER(t.description) LIKE ?)
+    WHERE t.status = 'active' AND ${conditions}
     ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC
     LIMIT 20
-  `).all(q, q)
+  `).all(...params)
 }
 
 export function markTaskDone(trelloCardId) {
