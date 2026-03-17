@@ -4,7 +4,8 @@ import cron from 'node-cron'
 import { getBoardCards, getBoardLists } from '../trello/trello.js'
 import {
   upsertTask, upsertTrelloLists, markTaskDone,
-  getTrelloLists, getAllActiveTasks
+  getTrelloLists, getAllActiveTasks,
+  deleteStaleLists, markDeletedTasksDone
 } from '../db/sqlite.js'
 import { sendTelegramMessage } from '../telegram/telegram.js'
 
@@ -107,5 +108,29 @@ async function syncTrello() {
 export async function forceSyncLists() {
   const lists = await getBoardLists()
   upsertTrelloLists(lists)
+  deleteStaleLists(lists.map(l => l.id))
+
+  const cards = await getBoardCards()
+  const doneLists = lists.filter(l => /выполнен|done|complete|завершён/i.test(l.name))
+  const doneListIds = new Set(doneLists.map(l => l.id))
+
+  for (const card of cards) {
+    if (card.closed) continue
+    const listName = lists.find(l => l.id === card.idList)?.name || ''
+    const isDone = doneListIds.has(card.idList)
+    upsertTask({
+      trello_card_id: card.id,
+      trello_list_id: card.idList,
+      list_name: listName,
+      title: card.name,
+      description: card.desc,
+      status: isDone ? 'done' : 'active',
+      due_date: card.due ? card.due.slice(0, 10) : null
+    })
+  }
+
+  const activeCardIds = cards.filter(c => !c.closed).map(c => c.id)
+  markDeletedTasksDone(activeCardIds)
+
   return getTrelloLists()
 }

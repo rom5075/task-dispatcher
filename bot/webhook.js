@@ -1,7 +1,7 @@
 // bot/webhook.js — главный файл бота
 
 import { parseTasks } from '../src/ai/taskParser.js'
-import { createCard } from '../src/trello/trello.js'
+import { createCard, attachPhotoToCard } from '../src/trello/trello.js'
 import {
   upsertProfile, getTrelloLists, upsertTask, getTasksByList, searchTasks
 } from '../src/db/sqlite.js'
@@ -33,7 +33,23 @@ export async function webhookHandler(req) {
   }
 
   const msg = body.message
-  if (!msg || !msg.text) return new Response('ok', { status: 200 })
+  if (!msg) return new Response('ok', { status: 200 })
+
+  // Обрабатываем фото
+  if (msg.photo) {
+    const chatId = msg.chat.id
+    const userId = msg.from.id
+    const name   = msg.from.first_name || 'User'
+    if (String(userId) !== String(ADMIN_ID)) {
+      await sendTelegramMessage(chatId, '⛔ Это личный бот.')
+      return new Response('ok', { status: 200 })
+    }
+    upsertProfile(userId, name)
+    await handlePhoto(chatId, msg)
+    return new Response('ok', { status: 200 })
+  }
+
+  if (!msg.text) return new Response('ok', { status: 200 })
 
   const chatId  = msg.chat.id
   const userId  = msg.from.id
@@ -242,6 +258,89 @@ async function handleCallback(cb) {
       reply_markup: buildListMenu(listId, list?.name)
     })
     return
+  }
+}
+
+// ─── Обработка фото ───────────────────────────────────────────────────────────
+
+async function getTelegramFileUrl(fileId) {
+  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/getFile?file_id=${fileId}`)
+  const data = await res.json()
+  const filePath = data.result?.file_path
+  if (!filePath) throw new Error('Не удалось получить путь к файлу')
+  return `https://api.telegram.org/file/bot${TOKEN}/${filePath}`
+}
+
+async function handlePhoto(chatId, msg) {
+  const caption = msg.caption?.trim()
+  const lists = getTrelloLists()
+
+  if (!caption) {
+    await sendTelegramMessage(chatId,
+      '📎 Фото получено. Перешли его ещё раз с подписью — опиши задачу в подписи, и я создам карточку с этим фото.'
+    )
+    return
+  }
+
+  if (lists.length === 0) {
+    await sendTelegramMessage(chatId, '⚠️ Колоды Trello не загружены. Отправь /sync.')
+    return
+  }
+
+  const placeholder = await sendTelegramMessage(chatId, '⏳ Анализирую задачи...')
+  const placeholderMsgId = placeholder.result?.message_id
+
+  try {
+    const tasks = await parseTasks(caption, lists)
+
+    if (!tasks || tasks.length === 0) {
+      await editTelegramMessage(chatId, placeholderMsgId,
+        '🤔 Не нашёл задач в подписи. Попробуй написать конкретнее.',
+        { reply_markup: buildMainMenu(lists) }
+      )
+      return
+    }
+
+    // Берём наибольшую версию фото и получаем URL
+    const largestPhoto = msg.photo[msg.photo.length - 1]
+    const photoUrl = await getTelegramFileUrl(largestPhoto.file_id)
+
+    // Создаём карточки и прикрепляем фото
+    const created = []
+    for (const task of tasks) {
+      const card = await createCard({
+        listId: task.listId,
+        title: task.title,
+        description: task.description,
+        due: task.due || null
+      })
+
+      upsertTask({
+        trello_card_id: card.id,
+        trello_list_id: task.listId,
+        list_name: task.listName,
+        title: task.title,
+        description: task.description,
+        status: 'active',
+        due_date: task.due || null
+      })
+
+      await attachPhotoToCard(card.id, photoUrl)
+      created.push({ ...task, cardUrl: card.shortUrl })
+    }
+
+    const report = formatTaskReport(created)
+    await editTelegramMessage(chatId, placeholderMsgId, report, {
+      reply_markup: buildMainMenu(lists),
+      disable_web_page_preview: true
+    })
+
+  } catch (err) {
+    console.error('[webhook] Ошибка обработки фото:', err)
+    await editTelegramMessage(chatId, placeholderMsgId,
+      `❌ Ошибка: ${err.message}`,
+      { reply_markup: buildMainMenu(lists) }
+    )
   }
 }
 

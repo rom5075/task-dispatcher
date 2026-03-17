@@ -7,3 +7,5 @@ data/
 *.db-shm
 *.db-wal
 VPS_SERVER_CLAUDE.md
+CLAUDE.md
+.claude/

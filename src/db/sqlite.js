@@ -205,6 +205,21 @@ export function markTaskDone(trelloCardId) {
   `).run(trelloCardId)
 }
 
+export function deleteStaleLists(activeListIds) {
+  if (activeListIds.length === 0) return
+  const placeholders = activeListIds.map(() => '?').join(',')
+  db.prepare(`DELETE FROM trello_lists WHERE list_id NOT IN (${placeholders})`).run(...activeListIds)
+}
+
+export function markDeletedTasksDone(activeCardIds) {
+  if (activeCardIds.length === 0) return
+  const placeholders = activeCardIds.map(() => '?').join(',')
+  db.prepare(`
+    UPDATE tasks SET status = 'done', updated_at = datetime('now')
+    WHERE status = 'active' AND trello_card_id NOT IN (${placeholders})
+  `).run(...activeCardIds)
+}
+
 // ─── Auth Rate Limiting ───────────────────────────────────────────────────────
 
 export function recordAuthAttempt(ip) {

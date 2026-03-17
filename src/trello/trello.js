@@ -36,7 +36,25 @@ export async function getListCards(listId) {
 }
 
 export async function getBoardCards() {
-  return trelloFetch(`/boards/${BOARD_ID}/cards?fields=id,name,desc,idList,closed`)
+  return trelloFetch(`/boards/${BOARD_ID}/cards?fields=id,name,desc,idList,closed,due`)
+}
+
+export async function attachPhotoToCard(cardId, photoUrl) {
+  const response = await fetch(photoUrl)
+  if (!response.ok) throw new Error('Не удалось скачать фото из Telegram')
+  const buffer = await response.arrayBuffer()
+  const blob = new Blob([buffer], { type: 'image/jpeg' })
+  const form = new FormData()
+  form.append('file', blob, 'photo.jpg')
+  const res = await fetch(`${BASE}/cards/${cardId}/attachments?key=${KEY}&token=${TOKEN}`, {
+    method: 'POST',
+    body: form
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Trello attachment error ${res.status}: ${text}`)
+  }
+  return res.json()
 }
 
 export async function createCard({ listId, title, description = '', due = null }) {
